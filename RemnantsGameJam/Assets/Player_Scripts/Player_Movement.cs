@@ -1,6 +1,5 @@
 using System.Collections;
 using System.Collections.Generic;
-using Unity.VisualScripting;
 using UnityEngine;
 
 
@@ -13,6 +12,7 @@ public class PlayerMovement : MonoBehaviour
 
 
     public LayerMask groundLayer;
+    public LayerMask wallLayer;
     public Transform groundCheck;
     public float groundCheckRadius;
 
@@ -20,27 +20,21 @@ public class PlayerMovement : MonoBehaviour
     private Rigidbody rb;
     private bool isGrounded;
 
+    public Transform cameraTransform;
+
     private void Start()
     {
         animator = GetComponent<Animator>();
         rb = GetComponent<Rigidbody>();
+        
+        Cursor.visible = false;
+        Cursor.lockState = CursorLockMode.Locked;
 
-        if (rb == null)
+        if (cameraTransform == null)
         {
-            Debug.LogError("Rigidbody is not attached to the player");
+            cameraTransform = Camera.main.transform;
         }
-        else 
-        {
-            Debug.Log("RigidBody successfully attached");
-        }
-        if (groundCheck == null)
-        {
-            Debug.LogError("GroundCheck is not assigned in the Inspector");
-        }
-        else
-        {
-            Debug.Log("GroundCheck successfully assigned");
-        }
+
     }
 
     private void Update()
@@ -62,8 +56,17 @@ public class PlayerMovement : MonoBehaviour
 
         float currentSpeed = Input.GetKey(KeyCode.LeftShift) ? sprintSpeed : walkSpeed;
 
+        Vector3 cameraForward = cameraTransform.forward;
+        Vector3 cameraRight = cameraTransform.right;
+
+        cameraForward.y = 0f;
+        cameraRight.y = 0f;
+        
+        cameraForward.Normalize();
+        cameraRight.Normalize();
+
         // Create a direction vector
-        Vector3 direction = new Vector3(horizontal, 0, vertical);
+        Vector3 direction = cameraForward * vertical + cameraRight * horizontal;
 
         if (direction.magnitude > 1f)
         {
@@ -72,14 +75,23 @@ public class PlayerMovement : MonoBehaviour
 
         if (direction.magnitude >= 0.1f)
         {
-            
-            transform.Translate(direction * currentSpeed * Time.deltaTime, Space.World);
+            Vector3 nextPosition = transform.position + direction * currentSpeed * Time.deltaTime;
+            if (!Physics.Raycast(transform.position, direction, out RaycastHit hit, currentSpeed * Time.deltaTime))
+            {
+                
+                transform.Translate(direction * currentSpeed * Time.deltaTime, Space.World);
 
-            Quaternion targetRotation = Quaternion.LookRotation(direction);
 
-            transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
-            
-            animator.SetFloat("Speed", direction.magnitude * (currentSpeed / sprintSpeed));    
+                Quaternion targetRotation = Quaternion.LookRotation(direction);
+
+                transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
+                
+                animator.SetFloat("Speed", direction.magnitude * (currentSpeed / sprintSpeed)); 
+            }
+            else
+            {
+                animator.SetFloat("Speed", direction.magnitude * (currentSpeed / sprintSpeed));
+            }   
             
         }
         else 
@@ -121,4 +133,3 @@ public class PlayerMovement : MonoBehaviour
     }
 
 }
-
